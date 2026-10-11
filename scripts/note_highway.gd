@@ -1,87 +1,73 @@
 extends Control
 
 var main: Control
-const LANES := [Color("4cfb7d"), Color("fe4a58"), Color("ffe43f"), Color("33c7ff"), Color("ff9c36")]
-const STRIP_FILES := ["green_strip.png", "red_strip.png", "yellow_strip.png", "blue_strip.png", "orange_strip.png"]
-const FRET_SPRITE_SIZE := Vector2(156.0, 112.0)
-const FRAME_WIDTH := 362.0
-const FRAME_HEIGHT := 724.0
-var fret_strips: Array[Texture2D] = []
+const COLORS := [Color("4cfb7d"), Color("fe4a58"), Color("ffe43f"), Color("33c7ff"), Color("ff9c36")]
+const ATLAS_PATH := "res://assets/frets/rhythm_legends_notes_atlas.png"
+const ATLAS_CELL := Vector2(280.0, 220.0)
+const ROW_NORMAL := 0
+const ROW_HIT := 1
+const ROW_FRET := 2
+const TARGET_Y := 650.0
+const TRAVEL_SECONDS := 2.0
+var atlas: Texture2D
 
 func _ready() -> void:
-	fret_strips.clear()
-	for filename in STRIP_FILES:
-		var absolute := ProjectSettings.globalize_path("res://assets/frets/" + filename)
-		var texture: Texture2D = null
-		if FileAccess.file_exists(absolute):
-			var image := Image.load_from_file(absolute)
-			if image != null and not image.is_empty():
-				texture = ImageTexture.create_from_image(image)
-		fret_strips.append(texture)
+	var location := ProjectSettings.globalize_path(ATLAS_PATH)
+	if FileAccess.file_exists(location):
+		var picture := Image.load_from_file(location)
+		if picture != null and not picture.is_empty():
+			atlas = ImageTexture.create_from_image(picture)
+	if atlas == null:
+		push_warning("Fret atlas PNG ausente: " + ATLAS_PATH)
 
 func _draw() -> void:
-	var top_l := Vector2(300,42)
-	var top_r := Vector2(610,42)
-	var bot_l := Vector2(75,690)
-	var bot_r := Vector2(845,690)
-	draw_colored_polygon(PackedVector2Array([top_l,top_r,bot_r,bot_l]),Color("030409eb"))
+	var top_l := Vector2(300, 42)
+	var top_r := Vector2(610, 42)
+	var bot_l := Vector2(75, 690)
+	var bot_r := Vector2(845, 690)
+	draw_colored_polygon(PackedVector2Array([top_l, top_r, bot_r, bot_l]), Color("030409eb"))
 	for i in range(6):
-		var t := float(i) / 5.0
-		draw_line(top_l.lerp(top_r,t),bot_l.lerp(bot_r,t),Color("7481938c") if i==0 or i==5 else Color("5e698055"),3.0 if i==0 or i==5 else 1.5)
+		var fraction := float(i) / 5.0
+		draw_line(top_l.lerp(top_r, fraction), bot_l.lerp(bot_r, fraction), Color("7481938c") if i == 0 or i == 5 else Color("5e698055"), 3.0 if i == 0 or i == 5 else 1.5)
 	for i in range(13):
-		var z := fposmod(float(i)/13.0 + float(main.elapsed)*0.37,1.0)
-		var depth := z*z
-		var y := lerpf(42.0,690.0,depth)
-		var left := lerpf(top_l.x,bot_l.x,depth)
-		var right := lerpf(top_r.x,bot_r.x,depth)
-		draw_line(Vector2(left,y),Vector2(right,y),Color("ffffff18"),1.0)
-	var target_y := 650.0
-	var travel_seconds := 2.0
+		var progress := fposmod(float(i) / 13.0 + float(main.elapsed) * 0.37, 1.0)
+		var projected := progress * progress
+		var y := lerpf(42.0, 690.0, projected)
+		draw_line(Vector2(lerpf(top_l.x, bot_l.x, projected), y), Vector2(lerpf(top_r.x, bot_r.x, projected), y), Color("ffffff18"), 1.0)
+	_draw_notes(top_l, top_r, bot_l, bot_r)
+	draw_line(Vector2(88, TARGET_Y), Vector2(832, TARGET_Y), Color("ffffff72"), 3.0)
+	for lane in range(5):
+		var center_x := lerpf(bot_l.x, bot_r.x, (float(lane) + 0.5) / 5.0)
+		var state := ROW_FRET
+		if main.game.feedback_timer > 0.0 and main.game.last_hit_lane == lane and main.game.feedback != "MISS":
+			state = ROW_HIT
+		elif main.game.held_lanes[lane]:
+			state = ROW_HIT
+		var size := Vector2(141.0, 91.0)
+		_draw_asset(lane, state, Rect2(Vector2(center_x, TARGET_Y) - size * 0.5, size))
+
+func _draw_notes(top_l: Vector2, top_r: Vector2, bot_l: Vector2, bot_r: Vector2) -> void:
 	for note in main.game.notes:
 		if int(note["state"]) != 0:
 			continue
-		var remaining: float = float(note["time"]) - main.game.time
-		if remaining < -0.18 or remaining > travel_seconds:
+		var remaining: float = float(note["time"]) - float(main.game.time)
+		if remaining < -0.18 or remaining > TRAVEL_SECONDS:
 			continue
-		var z: float = clampf(1.0 - remaining/travel_seconds,0.0,1.0)
-		var depth: float = z*z
+		var progress: float = clampf(1.0 - remaining / TRAVEL_SECONDS, 0.0, 1.0)
+		var depth: float = progress * progress
 		var lane: int = int(note["lane"])
-		if lane < 0 or lane > 4:
+		if lane < 0 or lane >= 5:
 			continue
-		var left := lerpf(top_l.x,bot_l.x,depth)
-		var right := lerpf(top_r.x,bot_r.x,depth)
-		var x := lerpf(left,right,(float(lane)+0.5)/5.0)
-		var y := lerpf(42.0,target_y,depth)
-		var radius := lerpf(8.0,34.0,depth)
-		draw_circle(Vector2(x,y),radius+5.0,Color("030409"))
-		draw_circle(Vector2(x,y),radius,LANES[lane].darkened(0.42))
-		draw_arc(Vector2(x,y),radius-2.0,0.0,TAU,28,LANES[lane],4.0)
-		draw_circle(Vector2(x,y-3.0),radius*0.44,LANES[lane].lightened(0.5))
-	draw_line(Vector2(88,target_y),Vector2(832,target_y),Color("ffffff72"),3.0)
-	for lane in range(5):
-		var x := lerpf(bot_l.x,bot_r.x,(float(lane)+0.5)/5.0)
-		var state := _state(lane)
-		var destination := Rect2(Vector2(x-FRET_SPRITE_SIZE.x*0.5,target_y-FRET_SPRITE_SIZE.y*0.5),FRET_SPRITE_SIZE)
-		if fret_strips.size() > lane and fret_strips[lane] != null:
-			draw_texture_rect_region(fret_strips[lane],destination,Rect2(float(state)*FRAME_WIDTH,0.0,FRAME_WIDTH,FRAME_HEIGHT))
-		else:
-			# Fallback keeps this branch runnable until the PNG assets are installed.
-			draw_circle(Vector2(x,target_y),43.0,LANES[lane].darkened(0.45))
-			draw_arc(Vector2(x,target_y),40.0,0.0,TAU,40,LANES[lane],6.0)
+		var left := lerpf(top_l.x, bot_l.x, depth)
+		var right := lerpf(top_r.x, bot_r.x, depth)
+		var center := Vector2(lerpf(left, right, (float(lane) + 0.5) / 5.0), lerpf(42.0, TARGET_Y, depth))
+		var size := Vector2(lerpf(22.0, 104.0, depth), lerpf(15.0, 68.0, depth))
+		_draw_asset(lane, ROW_NORMAL, Rect2(center - size * 0.5, size))
 
-func _state(lane: int) -> int:
-	if main.game.feedback_timer > 0.0 and main.game.last_hit_lane == lane and main.game.feedback != "MISS":
-		return 3 # hit
-	if main.game.feedback_timer > 0.0 and main.game.last_miss_lane == lane and main.game.feedback == "MISS":
-		return 5 # disabled (miss visual)
-	if main.game.held_lanes[lane]:
-		for note in main.game.notes:
-			if int(note["lane"]) == lane and int(note["state"]) == 1 and float(note.get("length",0.0)) > 0.12 and main.game.time < float(note["time"])+float(note["length"]):
-				return 4 # sustain
-		return 2 # pressed
-	for note in main.game.notes:
-		if int(note["state"]) == 0 and int(note["lane"]) == lane:
-			var remaining: float = float(note["time"])-main.game.time
-			if remaining >= 0.0 and remaining < 0.18:
-				return 1 # glow
-	return 0 # normal
+func _draw_asset(lane: int, row: int, target: Rect2) -> void:
+	if atlas != null:
+		var source := Rect2(float(lane) * ATLAS_CELL.x, float(row) * ATLAS_CELL.y, ATLAS_CELL.x, ATLAS_CELL.y)
+		draw_texture_rect_region(atlas, target, source)
+	else:
+		# A fallback is rendered only if the actual PNG has not been added.
+		draw_circle(target.get_center(), target.size.y * 0.33, COLORS[lane])

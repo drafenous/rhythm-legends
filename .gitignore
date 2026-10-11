@@ -1,0 +1,51 @@
+# Rhythm Legends — Godot 4.x (GDScript)
+# Godot's generated import/cache data (recreated by editor).
+.godot/
+
+# Local editor/IDE state.
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local runs and exported artifacts.
+build/
+builds/
+dist/
+exports/
+*.pck
+*.exe
+*.app/
+*.dmg
+*.apk
+*.aab
+*.ipa
+
+# User-owned music libraries and licensed content.
+# Clone Hero songs should be imported from an external folder.
+songs/
+Songs/
+music/
+Music/
+
+# Local transcoding outputs / temporary audio.
+audio_cache/
+*.tmp
+*.log
+
+# Environment-specific secrets and files.
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pfx
+
+# Keep source assets (including assets/frets/*.png), scenes,
+# scripts, project.godot and export_presets.cfg under version control.

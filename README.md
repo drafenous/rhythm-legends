@@ -36,3 +36,13 @@ Protótipo Godot 4.7.2 (GDScript), identidade Rock clássico, guitarra de cinco 
 - `scripts/note_highway.gd`: pista.
 - `scripts/clone_hero_library.gd`: biblioteca.
 - `scripts/clone_hero_midi.gd`, `scripts/clone_hero_chart.gd`: parsers.
+
+## Frets visuais (MVP 0.5.x)
+
+- `assets/frets/fret_atlas.svg`: atlas 1280×1536 (5 colunas de cores × 6 linhas de estados; células 256×256).
+- Cores, na ordem: verde, vermelho, amarelo, azul e laranja.
+- Estados, na ordem: normal, pressed, hit, sustain, miss e disabled.
+- `scripts/note_highway.gd` posiciona as texturas em perspectiva na linha de julgamento, com elipses achatadas e centros alinhados às cinco pistas.
+- Normal, pressed, hit e miss estão conectados ao estado do gameplay; sustain e disabled permanecem reservados.
+- O SVG é uma adaptação vetorial dos conceitos visuais, não uma exportação pixel a pixel dos renders anteriores.
+- **Validação pendente no Godot**: confirmar importação do SVG, alinhamento, escala e acionamento dos estados.

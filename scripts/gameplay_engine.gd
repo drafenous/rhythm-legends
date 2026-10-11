@@ -35,7 +35,7 @@ func start(difficulty: int = 1) -> void:
  feedback_timer = 0.0
  held_lanes = [false, false, false, false, false]
  var step := 60.0 / BPM
- var subdivision := [2.0, 1.0, 0.5, 0.5][clampi(difficulty, 0, 3)]
+ var subdivision: float = [2.0, 1.0, 0.5, 0.5][clampi(difficulty, 0, 3)]
  var interval := step * subdivision
  var count := int((SONG_LENGTH - LEAD_IN - 2.0) / interval)
  for i in range(count):

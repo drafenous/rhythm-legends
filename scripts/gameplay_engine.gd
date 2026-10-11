@@ -49,7 +49,10 @@ func start(difficulty: int = 1) -> void:
  total_notes = notes.size()
 
 func advance(delta: float) -> void:
- time += delta
+ advance_to(time + delta,delta)
+
+func advance_to(new_time: float, delta: float) -> void:
+ time = maxf(time,new_time)
  feedback_timer = maxf(0.0, feedback_timer - delta)
  for note in notes:
   if int(note["state"]) == 0 and float(note["time"]) < time - HIT_WINDOW:

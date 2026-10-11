@@ -53,3 +53,12 @@ Protótipo Godot 4.7.2 (GDScript), identidade Rock clássico, guitarra de cinco 
 - Imagens: usa o atlas PNG existente em `assets/rhythm_legends_notes_atlas.png` (5 colunas × 3 linhas). Não adicione as capturas com fundo cinza como textura; use o PNG com transparência já preparado.
 - Audio: relógio monotônico baseado em posição real de playback com fallback para tempo simulado; pausa preserva o timestamp.
 - **Não verificado no runtime**: rodar o Godot 4.7.2 e testar a música Before I Forget no modo Médio, verificando posição das notas, acerto, pausa e áudio. A aplicação de offset e o alinhamento sample-accurate dos stems ainda exigem validação empírica.
+
+## MVP 0.5.3 — Gameplay Refinement
+
+- Julgamento das notas: Perfect (até 55 ms), Good (até 160 ms) e Miss (nota vencida).
+- Precisão calculada sobre notas já julgadas, em vez do total futuro da música; a média de Good tem peso 0,5.
+- Rock Meter inicia em 50%, ganha 1,2 ponto percentual por acerto e perde 3,5 pontos por nota perdida. É apenas indicador visual, sem game over ainda.
+- Halo/partículas desenhadas na highway por cerca de 0,28 s após um acerto.
+- Acordes funcionam com pressionamento simultâneo de teclas em pistas diferentes; ainda sem strum nem julgamento de acordes como grupo.
+- Não há testes automatizados nem validação no editor Godot neste ambiente; verificar os novos scripts antes de considerar esta entrega estável.

@@ -1,42 +1,38 @@
-# Rhythm Legends — MVP 0.4 (Clone Hero Importer)
+# Rhythm Legends — MVP 0.5: Áudio e Sincronização
 
-Protótipo de jogo de ritmo em **Godot 4.7.2 / GDScript**, com visual Rock clássico e guitarra de cinco pistas.
+Protótipo Godot 4.7.2 (GDScript), identidade Rock clássico, guitarra de cinco pistas.
 
-## Executar
-1. Importe `project.godot` no Godot 4.7.2 e execute com **F5**.
-2. Abra **BIBLIOTECA → ESCOLHER PASTA CLONE HERO**.
-3. Escolha uma pasta que contenha subpastas de músicas, cada uma com `song.ini` e `notes.mid` ou `notes.chart`.
-4. Acesse **SELECIONAR MÚSICA**, escolha a faixa e a dificuldade.
-5. Pressione **A S J K L** ao chegar à linha de acerto. **Esc** pausa.
+## Teste local
+1. Execute `git pull origin main` e importe `project.godot` no editor.
+2. Execute F5 → **Biblioteca** → escolha sua pasta de músicas Clone Hero (subpastas com `song.ini` e `notes.mid` ou `notes.chart`).
+3. Selecione a música e dificuldade. Aperte **A S J K L** ao chegar à linha de julgamento; Esc pausa.
+4. Para arquivos `.opus` (por exemplo, *Before I Forget*), instale **FFmpeg** e configure o executável `ffmpeg` no PATH do sistema; reinicie o editor Godot após ajustar o PATH. Faça o teste com `ffmpeg -version` no terminal.
+5. Em **Configurações → Áudio**, ajuste volume geral de música; em **Calibração**, ajuste atraso entre -250 e +250 ms. Preferências são gravadas em `user://audio_settings.cfg`.
 
-A pasta é lembrada em `user://clone_hero_library.txt`. Nenhuma música é copiada para o projeto. Sem pasta configurada, o menu **TOCAR** preserva as músicas de demonstração.
+## Nesta versão
+- Carregamento externo de áudio OGG Vorbis, MP3 e WAV pelo Godot, sem copiar a biblioteca para `res://`.
+- Para Opus: conversão por FFmpeg a Vorbis em `user://audio_cache`, reusando o cache com hash de caminho e mtime.
+- Múltiplos stems: song, guitar, rhythm, bass, drums, drums_1 a drums_4, vocals, keys e crowd quando existirem. Cada stem usa um `AudioStreamPlayer`.
+- Relógio das notas derivado da posição de reprodução, compensando mix e latência de saída; fallback sem áudio para teste visual.
+- Pausa, retomada, replay e saída interrompem ou controlam os stems.
+- Ajuste de latência e volume preservados entre sessões.
+- Importador 0.4 de `song.ini`, `notes.mid`, `notes.chart` e quatro dificuldades preservado.
 
-## Importador 0.4
-- Varredura recursiva de diretórios de músicas.
-- `song.ini`: título, artista, gênero e ano.
-- `notes.mid`: Standard MIDI File com eventos de tempo, alterações de BPM, canal MIDI e `PART GUITAR`; mapeamento de notas de 5 trastes (Easy 60–64, Medium 72–76, Hard 84–88, Expert 96–100).
-- `notes.chart`: `[SyncTrack]`, BPM e `EasySingle/MediumSingle/HardSingle/ExpertSingle`.
-- Conversão de ticks para segundos, inclusive alterações de tempo.
-- HUD, combos, pontos, misses e resultado usando as notas importadas.
+## Restrições e cuidados
+- **FFmpeg é uma dependência externa opcional**, necessária para músicas somente em Opus. Não vem com o jogo.
+- A conversão é feita de forma síncrona quando uma música é selecionada: primeira carga pode bloquear a UI, e várias faixas consomem espaço em disco. Futuramente fazer conversão em segundo plano.
+- Os stems são disparados em sequência no mesmo frame, **não há garantia de alinhamento sample-accurate**; para sincronismo profissional precisamos aprimorar essa abordagem.
+- Não há reprodução em streaming com gerenciamento de memória/decodificação assíncrona.
+- A calibração aplica um deslocamento simples ao tempo das notas; não há assistente de calibração automática.
+- Sustains, HOPO, tapping, frases de Star Power, input de palhetada e controles externos ainda não estão completos.
+- Nem todos os casos de charts e song.ini foram testados.
+- **Não houve teste no editor Godot neste ambiente.** Faça validação de parser e execução local antes de considerar a 0.5 estável.
+- Importe apenas músicas com autorização adequada.
 
-## Limitações conhecidas
-- **Áudio ainda não toca**, incluindo arquivos `.opus`. O gameplay funciona como visualizador/julgador de chart sem referência musical.
-- Sustains são lidos como duração, mas ainda não têm julgamento de sustentação.
-- Ainda não há HOPO, tapping, open notes, frases de Star Power nem suporte completo a acordes e à palhetada real.
-- Nem todos os formatos/variantes de `song.ini` foram verificados.
-- No MIDI, o parser básico cobre `PART GUITAR`, mas não implementa SysEx, fraseamento, instrumentos adicionais ou regras completas de chart.
-- No MIDI, o leitor associa notas por altura e ainda não cobre sobreposições de mesma altura.
-- O algoritmo atual de input aceita apertar a tecla diretamente (sem strum).
-- Projeto **ainda não testado no runtime do editor** por indisponibilidade do Godot no ambiente de execução.
-- Arquivos de músicas comerciais pertencem aos titulares de direitos; importe somente conteúdo que você tenha autorização para usar.
-
-## Scripts
-- `scripts/main.gd` — menus, seleção e fluxo de jogo.
-- `scripts/gameplay_engine.gd` — estado, julgamento e pontuação.
-- `scripts/note_highway.gd` — desenho da pista 2D.
-- `scripts/clone_hero_library.gd` — varredura, indexação e pasta persistida.
-- `scripts/clone_hero_midi.gd` — leitura de Standard MIDI Files.
-- `scripts/clone_hero_chart.gd` — leitura de arquivos de chart em texto.
-
-## Próxima fase (0.5)
-Implementar reprodução confiável de áudio e stems, relógio musical e calibração de latência antes de aumentar a complexidade de HOPO/sustains.
+## Arquivos
+- `scripts/main.gd`: interface, seleção, reprodução e menus.
+- `scripts/audio_stems.gd`: áudio externo, conversão e relógio.
+- `scripts/gameplay_engine.gd`: julgamento ancorado no relógio de áudio.
+- `scripts/note_highway.gd`: pista.
+- `scripts/clone_hero_library.gd`: biblioteca.
+- `scripts/clone_hero_midi.gd`, `scripts/clone_hero_chart.gd`: parsers.

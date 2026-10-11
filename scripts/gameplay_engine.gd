@@ -19,6 +19,8 @@ var perfects := 0
 var goods := 0
 var total_notes := 0
 var feedback := ""
+var last_hit_lane := -1
+var last_miss_lane := -1
 var feedback_timer := 0.0
 var held_lanes := [false, false, false, false, false]
 
@@ -34,6 +36,8 @@ func start(difficulty: int = 1) -> void:
 	perfects = 0
 	goods = 0
 	feedback = ""
+	last_hit_lane = -1
+	last_miss_lane = -1
 	feedback_timer = 0.0
 	held_lanes = [false, false, false, false, false]
 	var step := 60.0 / BPM
@@ -59,6 +63,7 @@ func advance_to(new_time: float, delta: float) -> void:
 			note["state"] = 2
 			misses += 1
 			combo = 0
+			last_miss_lane = int(note["lane"])
 			feedback = "MISS"
 			feedback_timer = 0.45
 
@@ -78,6 +83,7 @@ func press_lane(lane: int) -> void:
 	if nearest.is_empty():
 		return
 	nearest["state"] = 1
+	last_hit_lane = lane
 	hits += 1
 	combo += 1
 	max_combo = maxi(max_combo, combo)

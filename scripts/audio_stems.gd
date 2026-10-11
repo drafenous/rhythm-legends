@@ -97,15 +97,14 @@ func resume() -> void:
 func advance(delta: float) -> float:
  if paused:
   return current_time()
- if not has_audio:
-  manual_time += delta
+ manual_time += delta
  return current_time()
 
 func current_time() -> float:
  if has_audio and is_instance_valid(clock_player):
   if clock_player.playing:
    return maxf(0.0,clock_player.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency() - offset_ms/1000.0)
-  return maxf(0.0,audio_length - offset_ms/1000.0)
+  return maxf(0.0,manual_time - offset_ms/1000.0)
  return maxf(0.0,manual_time-offset_ms/1000.0)
 
 func stop() -> void:

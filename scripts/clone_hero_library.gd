@@ -15,7 +15,7 @@ func scan(path: String) -> void:
 		return
 	var directories: Array[String] = [path]
 	while not directories.is_empty():
-		var current := directories.pop_back()
+		var current: String = directories.pop_back()
 		var dir := DirAccess.open(current)
 		if dir == null:
 			continue

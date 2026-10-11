@@ -18,19 +18,28 @@ func _draw() -> void:
   var left:=lerpf(top_l.x,bot_l.x,z*z)
   var right:=lerpf(top_r.x,bot_r.x,z*z)
   draw_line(Vector2(left,y),Vector2(right,y),Color("ffffff18"),1)
- for i in range(19):
-  var z:=fposmod(float(i)*0.137+float(main.elapsed)*0.19,1.0)
-  var perspective:=z*z
-  var lane: int=(i*7+i/3)%5
-  var left:=lerpf(top_l.x,bot_l.x,perspective)
-  var right:=lerpf(top_r.x,bot_r.x,perspective)
-  var x:=lerpf(left,right,(float(lane)+0.5)/5.0)
-  var y:=42.0+648.0*perspective
-  var r:=7.0+30.0*perspective
-  draw_circle(Vector2(x,y),r+4,Color("000000"))
-  draw_circle(Vector2(x,y),r,LANES[lane].darkened(0.45))
-  draw_arc(Vector2(x,y),r-2,0,TAU,24,LANES[lane],4)
-  draw_circle(Vector2(x,y-3),r*0.43,LANES[lane].lightened(0.5))
+ # Notas reais do chart de teste, posicionadas pelo tempo ate o acerto.
+ var target_y := 650.0
+ var travel_seconds := 2.0
+ for note in main.game.notes:
+  if int(note["state"]) != 0:
+   continue
+  var remaining: float = float(note["time"]) - main.game.time
+  if remaining < -0.18 or remaining > travel_seconds:
+   continue
+  var z: float = clampf(1.0 - remaining / travel_seconds, 0.0, 1.0)
+  var depth: float = z * z
+  var lane: int = int(note["lane"])
+  var left := lerpf(top_l.x,bot_l.x,depth)
+  var right := lerpf(top_r.x,bot_r.x,depth)
+  var x := lerpf(left,right,(float(lane)+0.5)/5.0)
+  var y := lerpf(42.0,target_y,depth)
+  var radius := lerpf(8.0,34.0,depth)
+  draw_circle(Vector2(x,y),radius+5.0,Color("030409"))
+  draw_circle(Vector2(x,y),radius,LANES[lane].darkened(0.42))
+  draw_arc(Vector2(x,y),radius-2.0,0.0,TAU,28,LANES[lane],4.0)
+  draw_circle(Vector2(x,y-3.0),radius*0.44,LANES[lane].lightened(0.5))
+ draw_line(Vector2(88,target_y),Vector2(832,target_y),Color("ffffff72"),3.0)
  for i in range(5):
   var x:=lerpf(bot_l.x,bot_r.x,(float(i)+0.5)/5.0)
   var radius:=48.0

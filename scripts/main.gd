@@ -15,6 +15,10 @@ const SONGS := [
 const DIFFICULTIES := ["FÁCIL","MÉDIO","DIFÍCIL","EXPERTO"]
 const COLORS := [Color("49f87e"), Color("ff4355"), Color("ffdb37"), Color("24bfff"), Color("ff9633")]
 
+var library = preload("res://scripts/clone_hero_library.gd").new()
+var imported_songs: Array[Dictionary] = []
+var active_song: Dictionary = {}
+var song_error := ""
 var page := "title"
 var previous_settings_page := "menu"
 var selected_song := 0
@@ -35,6 +39,8 @@ var score_value: Label
 var key_flash := [0.0,0.0,0.0,0.0,0.0]
 
 func _ready() -> void:
+ library.load_saved()
+ imported_songs = library.songs
  _render("title")
 
 func _process(delta: float) -> void:
@@ -131,6 +137,7 @@ func _render(next: String) -> void:
   "profile": _screen_profile()
   "settings": _screen_settings()
   "library": _screen_library()
+  "import_error": _screen_import_error()
  _footer()
  if not actions.is_empty():
   actions[0].grab_focus.call_deferred()
@@ -198,7 +205,7 @@ func _button(text:String,x:float,y:float,w:float,h:float,callback:Callable,highl
  return b
 
 func _footer() -> void:
- _label("RHYTHM LEGENDS   ·   VISUAL PROTOTYPE 0.2",30,854,700,28,15,Color("a6a9b5"))
+ _label("RHYTHM LEGENDS   ·   CLONE HERO IMPORTER 0.4",30,854,700,28,15,Color("a6a9b5"))
  _label("ENTER  CONFIRMAR      ↑ ↓  NAVEGAR      ESC  VOLTAR",960,854,610,28,17,Color("d4d5da"),true)
 
 func _screen_title() -> void:
@@ -228,6 +235,9 @@ func _screen_menu() -> void:
  _label("SEU PALCO. SEU SOM. SUA LENDA.",65,758,500,38,19,MUTED)
 
 func _screen_songs() -> void:
+ if not imported_songs.is_empty():
+  _screen_imported_songs()
+  return
  _rect(0,0,1030,900,Color("03050bf0"))
  _label("SELECIONAR MÚSICA",75,60,850,84,54,WHITE,false,true)
  _label("MODO SOLO  /  GUITARRA",80,138,700,38,20,GOLD)
@@ -253,6 +263,9 @@ func _screen_songs() -> void:
  _label("%s   ·   %s" % [SONGS[selected_song].year,SONGS[selected_song].time],1080,709,455,42,21,MUTED,true)
 
 func _screen_difficulty() -> void:
+ if not active_song.is_empty():
+  _screen_imported_difficulty()
+  return
  _rect(0,0,1600,900,Color("00000099"))
  _label("ESCOLHER DIFICULDADE",180,112,1240,76,56,WHITE,true,true)
  _label("%s — %s" % [SONGS[selected_song].title,SONGS[selected_song].artist],260,186,1080,46,23,MUTED,true)
@@ -286,7 +299,7 @@ func _screen_gameplay() -> void:
  combo_value=_label("x1  •  0 COMBO",1195,385,325,108,34,GOLD,true,true)
  accuracy_value=_label("PRECISÃO  0.0%",1210,475,315,52,22,WHITE,true)
  feedback_value=_label("",560,385,480,80,46,GOLD,true,true)
- _label("%s   •   %s" % [SONGS[selected_song].title,DIFFICULTIES[selected_difficulty]],390,24,840,55,26,WHITE,true)
+ _label("%s   •   %s" % [str(active_song.get("title",SONGS[selected_song].title)),DIFFICULTIES[selected_difficulty]],390,24,840,55,26,WHITE,true)
  highway=Control.new()
  highway.position=Vector2(280,125)
  highway.size=Vector2(930,700)
@@ -342,12 +355,16 @@ func _screen_profile() -> void:
  _label("Rock\n\nAlternativo\n\nMetal\n\nPop",835,515,610,220,23,WHITE)
 
 func _screen_library() -> void:
+ if not imported_songs.is_empty() or not library.root.is_empty():
+  _screen_clone_library()
+  return
  _rect(0,0,1600,900,Color("010307cf"))
  _label("BIBLIOTECA",92,88,1020,93,70,WHITE,false,true)
  _label("MÚSICAS DISPONÍVEIS",96,229,840,45,28,GOLD)
  _label("%d músicas demonstrativas" % SONGS.size(),96,299,960,51,35,WHITE)
  _label("A leitura de pastas Clone Hero, song.ini, notes.chart e notes.mid\nserá integrada em uma próxima etapa.",97,377,1020,101,24,MUTED)
- _button("VER MÚSICAS",98,544,395,69,func(): _render("songs"),true)
+ _button("IMPORTAR PASTA CLONE HERO",98,544,540,69,func(): _choose_library(),true)
+ _button("VER MÚSICAS",98,620,395,69,func(): _render("songs"))
  _button("VOLTAR",98,637,395,69,func(): _render("menu"))
 
 func _screen_settings() -> void:
@@ -376,6 +393,93 @@ func _screen_settings() -> void:
   _label("Esta seção será configurada nas próximas versões do protótipo.",533,440,850,114,23,MUTED)
  _button("VOLTAR",80,761,360,64,func(): _render(previous_settings_page),false,24)
 
+
+func _choose_library() -> void:
+ var dialog := FileDialog.new()
+ dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+ dialog.access = FileDialog.ACCESS_FILESYSTEM
+ dialog.title = "Selecionar pasta Clone Hero"
+ dialog.size = Vector2i(900,600)
+ add_child(dialog)
+ dialog.dir_selected.connect(func(path: String):
+  library.scan(path)
+  imported_songs = library.songs
+  active_song = {}
+  dialog.queue_free()
+  _render("library")
+ )
+ dialog.canceled.connect(func(): dialog.queue_free())
+ dialog.popup_centered()
+
+func _screen_clone_library() -> void:
+ _rect(0,0,1600,900,Color("010307cf"))
+ _label("BIBLIOTECA CLONE HERO",92,85,1280,96,62,WHITE,false,true)
+ _label("%d músicas encontradas" % imported_songs.size(),96,218,900,65,36,GOLD)
+ _label("Pasta: %s" % library.root,96,310,1360,95,19,MUTED)
+ _label("A importação funciona diretamente do disco. Áudio não habilitado.",96,430,1340,55,23,WHITE)
+ _button("ESCOLHER OUTRA PASTA",98,545,540,70,func(): _choose_library(),true)
+ _button("SELECIONAR MÚSICA",98,630,540,70,func(): _render("songs"))
+ _button("VOLTAR",98,715,320,62,func(): _render("menu"))
+
+func _screen_imported_songs() -> void:
+ _rect(0,0,1600,900,Color("03050bea"))
+ _label("MÚSICAS IMPORTADAS",72,55,1200,80,55,WHITE,false,true)
+ _label("%d músicas  •  guitarra de cinco botões" % imported_songs.size(),78,135,1110,44,22,GOLD)
+ var scroll := ScrollContainer.new()
+ scroll.position = Vector2(76,207)
+ scroll.size = Vector2(1410,568)
+ layer.add_child(scroll)
+ var list := VBoxContainer.new()
+ list.custom_minimum_size.x = 1370
+ list.add_theme_constant_override("separation",8)
+ scroll.add_child(list)
+ for song in imported_songs:
+  var data: Dictionary = song
+  var button := Button.new()
+  button.text = "%s   —   %s" % [data["title"],data["artist"]]
+  button.custom_minimum_size = Vector2(1300,68)
+  button.add_theme_font_size_override("font_size",25)
+  button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+  button.pressed.connect(func():
+   active_song = data
+   _render("difficulty")
+  )
+  list.add_child(button)
+  actions.append(button)
+ _button("VOLTAR",80,794,320,53,func(): _render("menu"))
+
+func _screen_imported_difficulty() -> void:
+ _rect(0,0,1600,900,Color("03050be8"))
+ _label("ESCOLHER DIFICULDADE",135,96,1320,80,60,WHITE,true,true)
+ _label("%s — %s" % [active_song["title"],active_song["artist"]],120,191,1360,65,28,GOLD,true)
+ for i in range(4):
+  var difficulty := i
+  var x := 140+i*333
+  _button(DIFFICULTIES[i],x,355,305,96,func():
+   var parsed: Dictionary = library.get_chart(active_song)
+   if parsed.has("error"):
+    song_error = str(parsed["error"])
+    _render("import_error")
+    return
+   var notes_for_difficulty: Array = parsed["notes"][difficulty]
+   if notes_for_difficulty.is_empty():
+    song_error = "Esta música não possui notas nessa dificuldade."
+    _render("import_error")
+    return
+   selected_difficulty = difficulty
+   game.start_chart(notes_for_difficulty)
+   elapsed = 0
+   playing = true
+   _render("gameplay")
+  ,i==selected_difficulty,26)
+ _label("Versão 0.4: leitura de notas MIDI/CHART, sem áudio ou sustains jogáveis.",175,625,1250,75,22,MUTED,true)
+
+func _screen_import_error() -> void:
+ _rect(0,0,1600,900,Color("03050bed"))
+ _label("ERRO AO IMPORTAR",120,180,1310,90,61,RED,true,true)
+ _label(song_error,200,340,1200,150,30,WHITE,true)
+ _button("VOLTAR",600,610,400,75,func(): _render("difficulty"),true)
+
 func _back() -> void:
  match page:
   "title": _render("menu")
@@ -385,4 +489,5 @@ func _back() -> void:
   "gameplay": playing=false;_render("pause")
   "pause": playing=true;_render("gameplay")
   "results": _render("songs")
+  "import_error": _render("difficulty")
   "settings": _render(previous_settings_page)

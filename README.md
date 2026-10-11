@@ -46,3 +46,10 @@ Protótipo Godot 4.7.2 (GDScript), identidade Rock clássico, guitarra de cinco 
 - Normal, pressed, hit e miss estão conectados ao estado do gameplay; sustain e disabled permanecem reservados.
 - O SVG é uma adaptação vetorial dos conceitos visuais, não uma exportação pixel a pixel dos renders anteriores.
 - **Validação pendente no Godot**: confirmar importação do SVG, alinhamento, escala e acionamento dos estados.
+
+## MVP 0.5.2 — Estabilização (em validação)
+
+- Highway: coordenadas projetadas compartilhadas para centros de lanes, notas e fret buttons; linha de julgamento alinhada à mesma largura.
+- Imagens: usa o atlas PNG existente em `assets/rhythm_legends_notes_atlas.png` (5 colunas × 3 linhas). Não adicione as capturas com fundo cinza como textura; use o PNG com transparência já preparado.
+- Audio: relógio monotônico baseado em posição real de playback com fallback para tempo simulado; pausa preserva o timestamp.
+- **Não verificado no runtime**: rodar o Godot 4.7.2 e testar a música Before I Forget no modo Médio, verificando posição das notas, acerto, pausa e áudio. A aplicação de offset e o alinhamento sample-accurate dos stems ainda exigem validação empírica.

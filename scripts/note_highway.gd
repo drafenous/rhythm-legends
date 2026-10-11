@@ -1,6 +1,8 @@
 extends Control
 
 var main: Control
+const FRET_ATLAS = preload("res://assets/frets/fret_atlas.svg")
+const FRET_SIZE := Vector2(256.0,256.0)
 const LANES := [Color("4cfb7d"),Color("fe4a58"),Color("ffe43f"),Color("33c7ff"),Color("ff9c36")]
 
 func _draw() -> void:
@@ -40,10 +42,19 @@ func _draw() -> void:
 		draw_arc(Vector2(x,y),radius-2.0,0.0,TAU,28,LANES[lane],4.0)
 		draw_circle(Vector2(x,y-3.0),radius*0.44,LANES[lane].lightened(0.5))
 	draw_line(Vector2(88,target_y),Vector2(832,target_y),Color("ffffff72"),3.0)
+	# Buttons and notes share the same projected lane centers.
+	# Atlas rows: normal, pressed, hit, sustain, miss, disabled.
 	for i in range(5):
-		var x:=lerpf(bot_l.x,bot_r.x,(float(i)+0.5)/5.0)
-		var radius:=48.0
-		draw_circle(Vector2(x,650),radius+6,Color("08090e"))
-		draw_circle(Vector2(x,650),radius,LANES[i].darkened(0.55))
-		draw_arc(Vector2(x,650),radius-3,0,TAU,40,LANES[i].lightened(main.key_flash[i]*0.7),7)
-		draw_circle(Vector2(x,639),radius*0.6,LANES[i].lightened(main.key_flash[i]*0.45))
+		var x := lerpf(bot_l.x,bot_r.x,(float(i)+0.5)/5.0)
+		var state := 0
+		if main.game.feedback_timer > 0.0 and main.game.last_hit_lane == i and main.game.feedback != "MISS":
+			state = 2
+		elif main.game.feedback_timer > 0.0 and main.game.last_miss_lane == i and main.game.feedback == "MISS":
+			state = 4
+		elif main.game.held_lanes[i]:
+			state = 1
+		var width := 147.0
+		var height := 105.0
+		var destination := Rect2(x-width*0.5, 650.0-height*0.5, width, height)
+		var region := Rect2(float(i)*256.0,float(state)*256.0,256.0,256.0)
+		draw_texture_rect_region(FRET_ATLAS,destination,region)

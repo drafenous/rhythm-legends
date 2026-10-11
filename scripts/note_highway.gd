@@ -2,7 +2,7 @@ extends Control
 
 var main: Control
 const COLORS := [Color("4cfb7d"), Color("fe4a58"), Color("ffe43f"), Color("33c7ff"), Color("ff9c36")]
-const ATLAS_PATH := "res://assets/frets/rhythm_legends_notes_atlas.png"
+const ATLAS_PATH := "res://assets/rhythm_legends_notes_atlas.png"
 const ATLAS_CELL := Vector2(280.0, 220.0)
 const ROW_NORMAL := 0
 const ROW_HIT := 1

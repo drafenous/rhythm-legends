@@ -90,7 +90,7 @@ func read(path: String) -> Dictionary:
 	var notes_by_difficulty := [[],[],[],[]]
 	for event in events:
 		for difficulty in range(4):
-			var lane := int(event["pitch"]) - BASE_NOTES[difficulty]
+			var lane: int = int(event["pitch"]) - int(BASE_NOTES[difficulty])
 			if lane >= 0 and lane < 5:
 				var second := _tick_seconds(int(event["tick"]),tempos,division)
 				var end_second := _tick_seconds(int(event["tick"])+int(event["length"]),tempos,division)

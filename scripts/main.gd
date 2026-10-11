@@ -16,6 +16,9 @@ const DIFFICULTIES := ["FÁCIL","MÉDIO","DIFÍCIL","EXPERTO"]
 const COLORS := [Color("49f87e"), Color("ff4355"), Color("ffdb37"), Color("24bfff"), Color("ff9633")]
 
 var library = preload("res://scripts/clone_hero_library.gd").new()
+var audio = preload("res://scripts/audio_stems.gd").new()
+var calibration_ms := 0.0
+var game_audio_status := ""
 var imported_songs: Array[Dictionary] = []
 var active_song: Dictionary = {}
 var song_error := ""
@@ -40,12 +43,17 @@ var key_flash := [0.0,0.0,0.0,0.0,0.0]
 
 func _ready() -> void:
  library.load_saved()
+ var config := ConfigFile.new()
+ if config.load("user://audio_settings.cfg") == OK:
+  calibration_ms = float(config.get_value("audio","offset_ms",0.0))
+  audio.set_volume(float(config.get_value("audio","volume",0.8)))
+ audio.offset_ms = calibration_ms
  imported_songs = library.songs
  _render("title")
 
 func _process(delta: float) -> void:
  if playing and page == "gameplay":
-  game.advance(delta)
+  game.advance_to(audio.advance(delta),delta)
   elapsed = game.time
   if is_instance_valid(highway):
    highway.queue_redraw()
@@ -59,6 +67,7 @@ func _process(delta: float) -> void:
    feedback_value.text = game.feedback if game.feedback_timer > 0.0 else ""
   if game.completed():
    playing = false
+   audio.stop()
    _render("results")
  for i in range(5):
   key_flash[i] = maxf(0.0, key_flash[i] - delta * 3.0)
@@ -205,7 +214,7 @@ func _button(text:String,x:float,y:float,w:float,h:float,callback:Callable,highl
  return b
 
 func _footer() -> void:
- _label("RHYTHM LEGENDS   ·   CLONE HERO IMPORTER 0.4",30,854,700,28,15,Color("a6a9b5"))
+ _label("RHYTHM LEGENDS   ·   AUDIO SYNCHRONIZATION 0.5",30,854,700,28,15,Color("a6a9b5"))
  _label("ENTER  CONFIRMAR      ↑ ↓  NAVEGAR      ESC  VOLTAR",960,854,610,28,17,Color("d4d5da"),true)
 
 func _screen_title() -> void:
@@ -278,6 +287,8 @@ func _screen_difficulty() -> void:
   _label("♠",x+65,404,170,133,111,clr,true)
   _button("SELECIONAR",x+33,559,235,64,func():
    selected_difficulty=idx
+   active_song = {}
+   audio.stop()
    game.start(selected_difficulty)
    elapsed=0
    playing=true
@@ -307,8 +318,8 @@ func _screen_gameplay() -> void:
  layer.add_child(highway)
  highway.set("main",self)
  _label("A   S   J   K   L    =    BOTÕES DE GUITARRA",1040,786,510,40,18,WHITE,true)
- _button("Ⅱ  PAUSAR",1290,705,230,58,func(): playing=false; _render("pause"),false,22)
- _label("PROTÓTIPO SEM ÁUDIO • A/S/J/K/L",1190,771,365,57,16,MUTED,true)
+ _button("Ⅱ  PAUSAR",1290,705,230,58,func(): playing=false; audio.pause(); _render("pause"),false,22)
+ _label(game_audio_status if not game_audio_status.is_empty() else "A/S/J/K/L • AUDIO SINCRONIZADO",1110,771,450,57,16,MUTED,true)
 
 func _screen_pause() -> void:
  _rect(0,0,1600,900,Color("000000a0"))
@@ -318,10 +329,10 @@ func _screen_pause() -> void:
   var idx:=i
   _button(opts[i],105,290+i*84,575,68,func():
    match idx:
-    0: playing=true;_render("gameplay")
-    1: game.start(selected_difficulty);elapsed=0;playing=true;_render("gameplay")
+    0: playing=true;audio.resume();_render("gameplay")
+    1: _restart_gameplay()
     2,3: previous_settings_page="pause";_render("settings")
-    4: playing=false;_render("menu")
+    4: playing=false;audio.stop();_render("menu")
   ,i==0,27)
 
 func _screen_results() -> void:
@@ -334,7 +345,7 @@ func _screen_results() -> void:
  for i in range(stats.size()): _label(stats[i],239,451+i*53,510,48,25,WHITE)
  _label("A",972,443,250,230,147,GOLD,true,true)
  _label("PERFECT: %d    GOOD: %d" % [game.perfects,game.goods],911,661,370,37,18,MUTED,true)
- _button("TOCAR NOVAMENTE",393,731,365,67,func(): game.start(selected_difficulty);elapsed=0;playing=true;_render("gameplay"),true)
+ _button("TOCAR NOVAMENTE",393,731,365,67,func(): _restart_gameplay(),true)
  _button("OUTRAS MÚSICAS",790,731,365,67,func(): _render("songs"))
 
 func _screen_profile() -> void:
@@ -383,16 +394,75 @@ func _screen_settings() -> void:
    var slide=HSlider.new()
    slide.position=Vector2(937,345+i*106)
    slide.size=Vector2(410,48)
-   slide.min_value=0;slide.max_value=100;slide.value=80 if i<2 else 70
+   slide.min_value=0;slide.max_value=100;slide.value=audio.volume*100.0 if i==0 else 80 if i==1 else 70
    layer.add_child(slide)
    _label("%d%%" % int(slide.value),1350,339+i*106,115,52,22,WHITE,true)
    var val_label:Label=layer.get_child(layer.get_child_count()-1)
-   slide.value_changed.connect(func(v:float): val_label.text="%d%%" % int(v))
+   var slot := i
+   slide.value_changed.connect(func(v:float):
+    val_label.text="%d%%" % int(v)
+    if slot==0:
+     audio.set_volume(v/100.0)
+     _save_audio_settings()
+   )
+ elif settings_tab==3:
+  _label("ATRASO DE AUDIO / VIDEO",533,333,870,65,30,WHITE)
+  _label("Ajuste em milissegundos (-250 a +250)",533,407,870,55,23,MUTED)
+  var tune := HSlider.new()
+  tune.position=Vector2(538,491)
+  tune.size=Vector2(690,55)
+  tune.min_value=-250.0
+  tune.max_value=250.0
+  tune.step=5.0
+  tune.value=calibration_ms
+  layer.add_child(tune)
+  var value_label := _label("%+.0f ms" % calibration_ms,1250,480,200,75,27,GOLD,true)
+  tune.value_changed.connect(func(v:float):
+   calibration_ms=v
+   audio.offset_ms=v
+   value_label.text="%+.0f ms" % v
+   _save_audio_settings()
+  )
  else:
   _label("OPÇÕES DE %s" % tabs[settings_tab],533,350,870,66,31,WHITE)
   _label("Esta seção será configurada nas próximas versões do protótipo.",533,440,850,114,23,MUTED)
  _button("VOLTAR",80,761,360,64,func(): _render(previous_settings_page),false,24)
 
+
+func _save_audio_settings() -> void:
+ var config := ConfigFile.new()
+ config.set_value("audio","offset_ms",calibration_ms)
+ config.set_value("audio","volume",audio.volume)
+ config.save("user://audio_settings.cfg")
+
+func _start_song_audio() -> void:
+ audio.offset_ms = calibration_ms
+ game_audio_status = ""
+ if active_song.is_empty():
+  audio.stop()
+  return
+ if not audio.prepare(str(active_song["path"]),get_tree().root):
+  game_audio_status = "SEM AUDIO: " + audio.warning
+ audio.play()
+
+func _restart_gameplay() -> void:
+ if active_song.is_empty():
+  audio.stop()
+  game.start(selected_difficulty)
+ else:
+  var parsed: Dictionary = library.get_chart(active_song)
+  if parsed.has("error"):
+   song_error = str(parsed["error"])
+   playing=false
+   audio.stop()
+   _render("import_error")
+   return
+  var chart_notes: Array = parsed["notes"][selected_difficulty]
+  game.start_chart(chart_notes)
+  _start_song_audio()
+ elapsed = 0.0
+ playing = true
+ _render("gameplay")
 
 func _choose_library() -> void:
  var dialog := FileDialog.new()
@@ -416,7 +486,7 @@ func _screen_clone_library() -> void:
  _label("BIBLIOTECA CLONE HERO",92,85,1280,96,62,WHITE,false,true)
  _label("%d músicas encontradas" % imported_songs.size(),96,218,900,65,36,GOLD)
  _label("Pasta: %s" % library.root,96,310,1360,95,19,MUTED)
- _label("A importação funciona diretamente do disco. Áudio não habilitado.",96,430,1340,55,23,WHITE)
+ _label("Audio: OGG/MP3/WAV; Opus via FFmpeg local com cache.",96,430,1340,55,23,WHITE)
  _button("ESCOLHER OUTRA PASTA",98,545,540,70,func(): _choose_library(),true)
  _button("SELECIONAR MÚSICA",98,630,540,70,func(): _render("songs"))
  _button("VOLTAR",98,715,320,62,func(): _render("menu"))
@@ -468,11 +538,12 @@ func _screen_imported_difficulty() -> void:
     return
    selected_difficulty = difficulty
    game.start_chart(notes_for_difficulty)
+   _start_song_audio()
    elapsed = 0
    playing = true
    _render("gameplay")
   ,i==selected_difficulty,26)
- _label("Versão 0.4: leitura de notas MIDI/CHART, sem áudio ou sustains jogáveis.",175,625,1250,75,22,MUTED,true)
+ _label("Versão 0.5: reprodução de áudio, stems, relógio musical e calibração.",175,625,1250,75,22,MUTED,true)
 
 func _screen_import_error() -> void:
  _rect(0,0,1600,900,Color("03050bed"))
@@ -486,8 +557,8 @@ func _back() -> void:
   "menu": _render("title")
   "songs","library","profile": _render("menu")
   "difficulty": _render("songs")
-  "gameplay": playing=false;_render("pause")
-  "pause": playing=true;_render("gameplay")
+  "gameplay": playing=false;audio.pause();_render("pause")
+  "pause": playing=true;audio.resume();_render("gameplay")
   "results": _render("songs")
   "import_error": _render("difficulty")
   "settings": _render(previous_settings_page)

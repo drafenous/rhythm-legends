@@ -13,6 +13,8 @@ var has_audio := false
 var manual_time := 0.0
 var paused := false
 var offset_time := 0.0
+var stable_time := 0.0
+var playback_started := false
 
 func prepare(song_folder: String, parent: Node) -> bool:
 	stop()
@@ -78,13 +80,18 @@ func _load_stream(path: String) -> AudioStream:
 
 func play() -> void:
 	manual_time = 0.0
+	stable_time = 0.0
+	playback_started = false
 	offset_time = 0.0
 	paused = false
 	if has_audio:
 		for p in players:
+			p.stream_paused = false
 			p.play(0.0)
+		playback_started = true
 
 func pause() -> void:
+	stable_time = current_time()
 	paused = true
 	for p in players:
 		p.stream_paused = true
@@ -101,11 +108,15 @@ func advance(delta: float) -> float:
 	return current_time()
 
 func current_time() -> float:
-	if has_audio and is_instance_valid(clock_player):
-		if clock_player.playing:
-			return maxf(0.0,clock_player.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency() - offset_ms/1000.0)
-		return maxf(0.0,manual_time - offset_ms/1000.0)
-	return maxf(0.0,manual_time-offset_ms/1000.0)
+	if paused:
+		return stable_time
+	var observed := manual_time
+	if has_audio and is_instance_valid(clock_player) and clock_player.playing:
+		observed = clock_player.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()
+	# Never reverse the chart clock due to audio mix jitter; calibration remains
+	# independent of the transport so pausing resumes at an identical timestamp.
+	stable_time = maxf(stable_time, maxf(0.0, observed - offset_ms / 1000.0))
+	return stable_time
 
 func stop() -> void:
 	for p in players:
@@ -117,6 +128,9 @@ func stop() -> void:
 	has_audio = false
 	initialized = false
 	paused = false
+	playback_started = false
+	stable_time = 0.0
+	manual_time = 0.0
 
 func set_volume(value: float) -> void:
 	volume = clampf(value,0.0,1.0)

@@ -55,6 +55,9 @@ func _draw() -> void:
 		var lane_width := (hit_right - hit_left) / 5.0
 		var size := Vector2(lane_width * 0.90, 96.0)
 		_draw_asset(lane, state, Rect2(Vector2(center_x, TARGET_Y) - size * 0.5, size))
+		if main.game.feedback_timer > 0.0 and main.game.last_hit_lane == lane and main.game.feedback != "MISS":
+			var intensity: float = clampf(main.game.feedback_timer / 0.28, 0.0, 1.0)
+			_draw_hit_burst(Vector2(center_x, TARGET_Y), COLORS[lane], intensity, lane)
 
 func _draw_notes(top_l: Vector2, top_r: Vector2, bot_l: Vector2, bot_r: Vector2) -> void:
 	for note in main.game.notes:
@@ -83,3 +86,14 @@ func _draw_asset(lane: int, row: int, target: Rect2) -> void:
 	else:
 		# A fallback is rendered only if the actual PNG has not been added.
 		draw_circle(target.get_center(), target.size.y * 0.33, COLORS[lane])
+
+func _draw_hit_burst(center: Vector2, hue: Color, intensity: float, lane: int) -> void:
+	var power := 1.0 - intensity
+	var radius := 32.0 + power * 56.0
+	var glow := Color(hue.r, hue.g, hue.b, intensity * 0.75)
+	draw_arc(center, radius, 0.0, TAU, 28, glow, 4.0 * intensity + 1.0)
+	for i in range(9):
+		var angle := TAU * float(i) / 9.0 + float(lane) * 0.27
+		var near := center + Vector2(cos(angle), sin(angle)) * (22.0 + power * 25.0)
+		var far := center + Vector2(cos(angle), sin(angle)) * (radius + 14.0)
+		draw_line(near, far, glow, 1.0 + 3.0 * intensity)

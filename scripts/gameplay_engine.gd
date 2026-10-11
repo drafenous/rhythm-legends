@@ -8,6 +8,7 @@ const GOOD_WINDOW := 0.115
 const HIT_WINDOW := 0.160
 
 var notes: Array[Dictionary] = []
+var song_length := SONG_LENGTH
 var time := 0.0
 var score := 0
 var combo := 0
@@ -23,6 +24,7 @@ var held_lanes := [false, false, false, false, false]
 
 func start(difficulty: int = 1) -> void:
  notes.clear()
+ song_length = SONG_LENGTH
  time = 0.0
  score = 0
  combo = 0
@@ -99,4 +101,17 @@ func accuracy() -> float:
  return 100.0 * float(perfects + goods * 0.5) / float(total_notes)
 
 func completed() -> bool:
- return time >= SONG_LENGTH
+ return time >= song_length
+
+func start_chart(chart_notes: Array) -> void:
+ start(1)
+ notes.clear()
+ for source in chart_notes:
+  var note: Dictionary = source.duplicate()
+  note["state"] = 0
+  notes.append(note)
+ total_notes = notes.size()
+ var end_time := 0.0
+ for note in notes:
+  end_time = maxf(end_time,float(note["time"])+float(note.get("length",0.0)))
+ song_length = maxf(3.0,end_time+3.0)

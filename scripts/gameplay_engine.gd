@@ -22,6 +22,10 @@ var feedback := ""
 var last_hit_lane := -1
 var last_miss_lane := -1
 var feedback_timer := 0.0
+var rock_meter := 0.5
+var judged_notes := 0
+var last_hit_time := -10.0
+var last_hit_lanes: Array[int] = []
 var held_lanes := [false, false, false, false, false]
 
 func start(difficulty: int = 1) -> void:
@@ -36,6 +40,10 @@ func start(difficulty: int = 1) -> void:
 	perfects = 0
 	goods = 0
 	feedback = ""
+	rock_meter = 0.5
+	judged_notes = 0
+	last_hit_time = -10.0
+	last_hit_lanes.clear()
 	last_hit_lane = -1
 	last_miss_lane = -1
 	feedback_timer = 0.0
@@ -56,37 +64,48 @@ func advance(delta: float) -> void:
 	advance_to(time + delta,delta)
 
 func advance_to(new_time: float, delta: float) -> void:
-	time = maxf(time,new_time)
+	time = maxf(time, new_time)
 	feedback_timer = maxf(0.0, feedback_timer - delta)
 	for note in notes:
 		if int(note["state"]) == 0 and float(note["time"]) < time - HIT_WINDOW:
-			note["state"] = 2
-			misses += 1
-			combo = 0
-			last_miss_lane = int(note["lane"])
-			feedback = "MISS"
-			feedback_timer = 0.45
+			_mark_miss(note)
+
+func _mark_miss(note: Dictionary) -> void:
+	note["state"] = 2
+	misses += 1
+	judged_notes += 1
+	combo = 0
+	rock_meter = maxf(0.0, rock_meter - 0.035)
+	last_miss_lane = int(note["lane"])
+	feedback = "MISS"
+	feedback_timer = 0.40
 
 func press_lane(lane: int) -> void:
 	if lane < 0 or lane > 4:
 		return
 	held_lanes[lane] = true
-	var nearest: Dictionary = {}
-	var best := HIT_WINDOW + 0.001
+	# Locate nearest pending note in this lane; simultaneous chord notes
+	# are judged independently and may be played with multiple held keys.
+	var chosen: Dictionary = {}
+	var best: float = HIT_WINDOW + 0.001
 	for note in notes:
 		if int(note["state"]) != 0 or int(note["lane"]) != lane:
 			continue
-		var distance := absf(float(note["time"]) - time)
-		if distance < best:
+		var distance: float = absf(float(note["time"]) - time)
+		if distance <= HIT_WINDOW and distance < best:
 			best = distance
-			nearest = note
-	if nearest.is_empty():
+			chosen = note
+	if chosen.is_empty():
 		return
-	nearest["state"] = 1
-	last_hit_lane = lane
+	chosen["state"] = 1
+	judged_notes += 1
 	hits += 1
 	combo += 1
 	max_combo = maxi(max_combo, combo)
+	last_hit_lane = lane
+	last_hit_time = time
+	last_hit_lanes = [lane]
+	rock_meter = minf(1.0, rock_meter + 0.012)
 	if best <= PERFECT_WINDOW:
 		perfects += 1
 		feedback = "PERFECT!"
@@ -95,7 +114,7 @@ func press_lane(lane: int) -> void:
 		goods += 1
 		feedback = "GOOD"
 		score += 50 * multiplier()
-	feedback_timer = 0.5
+	feedback_timer = 0.28
 
 func release_lane(lane: int) -> void:
 	if lane >= 0 and lane < 5:
@@ -107,7 +126,7 @@ func multiplier() -> int:
 func accuracy() -> float:
 	if total_notes == 0:
 		return 0.0
-	return 100.0 * float(perfects + goods * 0.5) / float(total_notes)
+	return 100.0 * float(perfects + goods * 0.5) / float(maxi(1,judged_notes))
 
 func completed() -> bool:
 	return time >= song_length

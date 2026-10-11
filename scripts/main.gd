@@ -32,6 +32,7 @@ var game = preload("res://scripts/gameplay_engine.gd").new()
 var combo_value: Label
 var accuracy_value: Label
 var feedback_value: Label
+var rock_meter_fill: Panel
 var playing := false
 var actions: Array[Button] = []
 var active_index := 0
@@ -63,6 +64,9 @@ func _process(delta: float) -> void:
 			combo_value.text = "x%d  •  %d COMBO" % [game.multiplier(), game.combo]
 		if is_instance_valid(accuracy_value):
 			accuracy_value.text = "PRECISÃO  %.1f%%" % game.accuracy()
+		if is_instance_valid(rock_meter_fill):
+			rock_meter_fill.size.y = 470.0 * game.rock_meter
+			rock_meter_fill.position.y = 711.0 - rock_meter_fill.size.y
 		if is_instance_valid(feedback_value):
 			feedback_value.text = game.feedback if game.feedback_timer > 0.0 else ""
 		if game.completed():
@@ -305,7 +309,7 @@ func _screen_gameplay() -> void:
 	score_value=_label(_format_score(game.score),1300,98,223,50,38,WHITE,true,true)
 	_label("☆☆☆☆☆",1260,170,300,55,39,GOLD,true)
 	_rect(78,230,35,490,Color("08110edc"),Color("70c991"),10)
-	_rect(85,711-minf(470,float(game.hits)*5.0),21,minf(470,float(game.hits)*5.0),Color("2aea73"))
+	rock_meter_fill = _rect(85,711.0-470.0*game.rock_meter,21,470.0*game.rock_meter,Color("2aea73"))
 	_label("ROCK METER",44,172,185,48,19,WHITE)
 	combo_value=_label("x1  •  0 COMBO",1195,385,325,108,34,GOLD,true,true)
 	accuracy_value=_label("PRECISÃO  0.0%",1210,475,315,52,22,WHITE,true)

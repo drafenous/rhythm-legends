@@ -21,6 +21,10 @@ var selected_song := 0
 var selected_difficulty := 1
 var settings_tab := 0
 var elapsed := 0.0
+var game = preload("res://scripts/gameplay_engine.gd").new()
+var combo_value: Label
+var accuracy_value: Label
+var feedback_value: Label
 var playing := false
 var actions: Array[Button] = []
 var active_index := 0
@@ -35,16 +39,38 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
  if playing and page == "gameplay":
-  elapsed += delta
+  game.advance(delta)
+  elapsed = game.time
   if is_instance_valid(highway):
    highway.queue_redraw()
   if is_instance_valid(score_value):
-   score_value.text = "%s" % _format_score(int(elapsed * 1610.0))
-  if elapsed >= 35.0:
+   score_value.text = _format_score(game.score)
+  if is_instance_valid(combo_value):
+   combo_value.text = "x%d  •  %d COMBO" % [game.multiplier(), game.combo]
+  if is_instance_valid(accuracy_value):
+   accuracy_value.text = "PRECISÃO  %.1f%%" % game.accuracy()
+  if is_instance_valid(feedback_value):
+   feedback_value.text = game.feedback if game.feedback_timer > 0.0 else ""
+  if game.completed():
    playing = false
    _render("results")
  for i in range(5):
-  key_flash[i] = maxf(0.0,key_flash[i]-delta*3.0)
+  key_flash[i] = maxf(0.0, key_flash[i] - delta * 3.0)
+
+func _input(event: InputEvent) -> void:
+ if page != "gameplay" or not event is InputEventKey:
+  return
+ var key := event as InputEventKey
+ var lane := [KEY_A, KEY_S, KEY_J, KEY_K, KEY_L].find(key.keycode)
+ if lane == -1:
+  return
+ if key.pressed and not key.echo:
+  key_flash[lane] = 1.0
+  if playing:
+   game.press_lane(lane)
+ elif not key.pressed:
+  game.release_lane(lane)
+ get_viewport().set_input_as_handled()
 
 func _unhandled_key_input(event: InputEvent) -> void:
  if not event is InputEventKey:
@@ -54,10 +80,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
   return
  if page == "title":
   _render("menu")
-  get_viewport().set_input_as_handled()
-  return
- if page == "gameplay" and key.keycode in [KEY_A,KEY_S,KEY_J,KEY_K,KEY_L]:
-  key_flash[[KEY_A,KEY_S,KEY_J,KEY_K,KEY_L].find(key.keycode)] = 1.0
   get_viewport().set_input_as_handled()
   return
  if event.is_action_pressed("ui_cancel"):
@@ -243,6 +265,7 @@ func _screen_difficulty() -> void:
   _label("♠",x+65,404,170,133,111,clr,true)
   _button("SELECIONAR",x+33,559,235,64,func():
    selected_difficulty=idx
+   game.start(selected_difficulty)
    elapsed=0
    playing=true
    _render("gameplay")
@@ -255,12 +278,14 @@ func _screen_gameplay() -> void:
  _rect(0,0,1600,900,Color("01030a33"))
  _rect(1275,54,268,110,Color("030611dc"),Color("e7c765"),5)
  _label("PONTUAÇÃO",1300,66,223,28,18,MUTED,true)
- score_value=_label(_format_score(int(elapsed*1610)),1300,98,223,50,38,WHITE,true,true)
+ score_value=_label(_format_score(game.score),1300,98,223,50,38,WHITE,true,true)
  _label("☆☆☆☆☆",1260,170,300,55,39,GOLD,true)
  _rect(78,230,35,490,Color("08110edc"),Color("70c991"),10)
- _rect(85,711-minf(470,elapsed*8),21,minf(470,elapsed*8),Color("2aea73"))
+ _rect(85,711-minf(470,float(game.hits)*5.0),21,minf(470,float(game.hits)*5.0),Color("2aea73"))
  _label("ROCK METER",44,172,185,48,19,WHITE)
- _label("x4",1250,385,120,108,61,GOLD,true,true)
+ combo_value=_label("x1  •  0 COMBO",1195,385,325,108,34,GOLD,true,true)
+ accuracy_value=_label("PRECISÃO  0.0%",1210,475,315,52,22,WHITE,true)
+ feedback_value=_label("",560,385,480,80,46,GOLD,true,true)
  _label("%s   •   %s" % [SONGS[selected_song].title,DIFFICULTIES[selected_difficulty]],390,24,840,55,26,WHITE,true)
  highway=Control.new()
  highway.position=Vector2(280,125)
@@ -270,7 +295,7 @@ func _screen_gameplay() -> void:
  highway.set("main",self)
  _label("A   S   J   K   L    =    BOTÕES DE GUITARRA",1040,786,510,40,18,WHITE,true)
  _button("Ⅱ  PAUSAR",1290,705,230,58,func(): playing=false; _render("pause"),false,22)
- _button("FINALIZAR DEMO",1290,771,230,57,func(): playing=false; _render("results"),false,17)
+ _label("PROTÓTIPO SEM ÁUDIO • A/S/J/K/L",1190,771,365,57,16,MUTED,true)
 
 func _screen_pause() -> void:
  _rect(0,0,1600,900,Color("000000a0"))
@@ -281,7 +306,7 @@ func _screen_pause() -> void:
   _button(opts[i],105,290+i*84,575,68,func():
    match idx:
     0: playing=true;_render("gameplay")
-    1: elapsed=0;playing=true;_render("gameplay")
+    1: game.start(selected_difficulty);elapsed=0;playing=true;_render("gameplay")
     2,3: previous_settings_page="pause";_render("settings")
     4: playing=false;_render("menu")
   ,i==0,27)
@@ -290,13 +315,13 @@ func _screen_results() -> void:
  _rect(0,0,1600,900,Color("01040bc0"))
  _label("MÚSICA CONCLUÍDA!",230,83,1140,93,64,WHITE,true,true)
  _label("★★★★☆",350,175,900,110,85,GOLD,true)
- _label(_format_score(int(elapsed*1610)),340,294,920,108,83,WHITE,true,true)
+ _label(_format_score(game.score),340,294,920,108,83,WHITE,true,true)
  _rect(200,436,590,243,Color("060910e8"),Color("647080"),6)
- var stats=["PRECISÃO                    —", "NOTAS ACERTADAS         —", "NOTAS PERDIDAS          —", "MAIOR COMBO             —"]
+ var stats=["PRECISÃO                %.1f%%" % game.accuracy(), "NOTAS ACERTADAS         %d" % game.hits, "NOTAS PERDIDAS          %d" % game.misses, "MAIOR COMBO             %d" % game.max_combo]
  for i in range(stats.size()): _label(stats[i],239,451+i*53,510,48,25,WHITE)
  _label("A",972,443,250,230,147,GOLD,true,true)
- _label("RESULTADO DEMONSTRATIVO",941,661,310,37,18,MUTED,true)
- _button("TOCAR NOVAMENTE",393,731,365,67,func(): elapsed=0;playing=true;_render("gameplay"),true)
+ _label("PERFECT: %d    GOOD: %d" % [game.perfects,game.goods],911,661,370,37,18,MUTED,true)
+ _button("TOCAR NOVAMENTE",393,731,365,67,func(): game.start(selected_difficulty);elapsed=0;playing=true;_render("gameplay"),true)
  _button("OUTRAS MÚSICAS",790,731,365,67,func(): _render("songs"))
 
 func _screen_profile() -> void:
